@@ -21,7 +21,7 @@ def pad_at_high_freqs(x, n_padded):
     """
     num_elements = len(x)
     ratio = n_padded / num_elements
-    num_nonnegative = np.ceil(num_elements / 2)
+    num_nonnegative = int(np.ceil(num_elements / 2))
     num_negative = num_elements - num_nonnegative
     x_nonneg_freq = x[:num_nonnegative]
     x_neg_freq = x[num_nonnegative:]
@@ -98,7 +98,42 @@ def fft_base(N, dx):
     hi_x_sample_index = np.ceil(N/2).astype('int')
     x_pos = dx*np.linspace(0,hi_x_sample_index-1,hi_x_sample_index)
     x_neg = dx*np.linspace(-(N-hi_x_sample_index), -1, N-hi_x_sample_index)
-    x = np.array([x_pos, x_neg]);
+    x = np.array([x_pos, x_neg])
 
     return x
+
+
+def rsrp_from_dfted_clip_and_delays_fast(V, dt, tau, verbosity):
+    """ Ported from JaneliaSciComp/Muse.git
+    See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/rsrp_from_dfted_clip_and_delays_fast.m
+
+    Argument Types:
+      - V: ndarray (N, n_mics), dtype=cfloat, N: number of time points
+      - dt: float, scalar
+      - tau: ndarray (n_mics, n_pts)
+    """
+    N, n_mics = V.shape
+    _, n_pts = tau.shape
+
+    M = mixing_matrix_from_n_mics(n_mics)
+    tau_diff = np.matmul(M, tau)
+
+    # sum of squared fft samples for each mic
+    V_ss_per_mic = np.sum(np.abs(V) ** 2, axis=0)
+    # Gain estimate (RMS of V)
+    a = np.sqrt(V_ss_per_mic) / N
+
+    xcorr_raw, tau_line = xcorr_raw_from_dfted_clip(V, dt, M, verbosity)
+
+    tau_diff_max = np.max(tau_diff)
+    tau_diff_min = np.min(tau_diff)
+
+    if (tau_diff_min < tau_line[0]) or (tau_diff_max > tau_line[-1]):
+        nan_rsrp = np.full((n_pts,), np.nan)
+        return nan_rsrp, a, None
+
+    rsrp, rsrp_per_pair = rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw, tau_line, tau_diff)
+
+    return rsrp, a, rsrp_per_pair
+
 
