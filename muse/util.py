@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.fft import fft
 
 
 def velocity_sound(T):
@@ -136,4 +137,62 @@ def rsrp_from_dfted_clip_and_delays_fast(V, dt, tau, verbosity):
 
     return rsrp, a, rsrp_per_pair
 
+
+def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R, verbosity):
+    """ Ported from JaneliaSciComp/Muse.git
+    See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/rsrp_grid_from_clip_and_xy_grids.m
+
+    Argument types:
+      - v: Ndarray (N, n_mics), dtype=np.cfloat; N is the number of time points
+      - fs: float, scalar; The sample rate
+      - f_lo: float, scalar; low end of bandpass filter
+      - f_hi: float, scalar; top end of bandpass filter
+      - temp: float, scalar; ambient temperature
+      - x_grid: Ndarray (n_x, n_y); Shape determines n_r for rsrp
+      - y_grid: Ndarray (n_x, n_y)
+      - R: Ndarray (3, n_mics)
+      - verbosity: int, scalar
+    """
+
+    dt = 1 / fs
+    N, n_mics = v.shape
+
+    # SKIPPED PLOTTING CODE
+    # Lines 20-33 of original function
+
+    # TODO: double check the axis here
+    # Matlab performs the fft on each column independently, treating each column as a vector
+    V = fft(v, axis=0)
+    f = np.abs(fft_base(N, fs / N))
+    # Entries between the two frequencies
+    keep_mask = (f_lo <= f) & (f < f_hi)
+
+    # TODO: Consider removing V as a return and correspondingly, perform operations directly on V
+    # instead of copying to V_filt
+    V_filt = V.copy()
+    V_filt[~keep_mask, :] = 0
+    N_filt = np.sum(keep_mask)
+
+    # Note: Temp (original name) replaced with lowercase temp
+    vel = velocity_sound(temp)
+
+    n_x, n_y = x_grid.shape
+    n_r = n_x * n_y
+    r_scan = np.zeros((3, 1, n_r), dtype=x_grid.dtype)
+    r_scan[0] = x_grid.reshape((1, -1))
+    r_scan[1] = y_grid.reshape((1, -1))
+
+    # The new axis allows the subtraction to be broadcast in the was bsxfun allowed
+    rsubR = r_scan - R[..., np.newaxis]
+    # Looks like a distance calculation
+    d = np.sqrt(np.sum(rsubR ** 2, axis=0))
+    tau = d / vel
+
+    rsrp, a, rsrp_per_pair = rsrp_from_dfted_clip_and_delays_fast(V_filt, dt, tau, verbosity)
+
+    rsrp_grid = rsrp.reshape((n_x, n_y))
+    n_pairs = rsrp_per_pair.shape[1]
+    rsrp_per_pair_grid = rsrp_per_pair.reshape((n_x, n_y, n_pairs))
+
+    return rsrp_grid, a, vel, N_filt, V_filt, V, rsrp_per_pair_grid
 
