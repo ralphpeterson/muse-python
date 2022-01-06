@@ -233,3 +233,27 @@ def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
 
     return xcorr_raw, tau_line
 
+
+def argmax_grid(x_grid, y_grid, objective):
+    """ Ported from JaneliaSciComp/Muse.git
+    See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/argmax_grid.m
+    """
+    i_min = np.argmax(objective)
+    objective_max = objective[i_min]
+    r_argmax = np.array([[x_grid[i_min]], [y_grid[i_min]]])
+    return r_argmax, objective_max
+
+
+def r_est_from_clip_simplfied(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, R, verbosity):
+    """ Ported from JaneliaSciComp/Muse.git
+    See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/r_est_from_clip_simplified.m
+
+    Most arguments here are equivalent to those in rsrp_grid_from_clip_and_xy_grids
+    """
+
+    rsrp_grid,a,vel,N_filt,V_filt,V,rsrp_per_pair_grid = rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R, verbosity)
+
+    r_est, rsrp_max = argmax_grid(x_grid, y_grid, rsrp_grid)
+
+    return r_est, rsrp_max, rsrp_grid, a, vel, N_filt, V_filt, V, rsrp_per_pair_grid
+
