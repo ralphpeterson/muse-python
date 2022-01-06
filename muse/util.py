@@ -87,3 +87,18 @@ def mixing_matrix_from_n_mics(n_mics):
             j = i + 1
     return M
 
+
+def fft_base(N, dx):
+    """
+    From https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/fft_base.m
+
+    Generates a frequency line to go with an N-point fft.
+    Frequencies are in cycles per sample, i.e. they go from about -1/2 to about 1/2.
+    """
+    hi_x_sample_index = np.ceil(N/2).astype('int')
+    x_pos = dx*np.linspace(0,hi_x_sample_index-1,hi_x_sample_index)
+    x_neg = dx*np.linspace(-(N-hi_x_sample_index), -1, N-hi_x_sample_index)
+    x = np.array([x_pos, x_neg]);
+
+    return x
+
