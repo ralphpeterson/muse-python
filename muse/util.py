@@ -16,9 +16,9 @@ def velocity_sound(T):
 
 
 def pad_at_high_freqs(x, n_padded):
-    ''' Ported from JaneliaSciComp/Muse.git
+    """ Ported from JaneliaSciComp/Muse.git
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/pad_at_high_freqs.m
-    '''
+    """
     num_elements = len(x)
     ratio = n_padded / num_elements
     num_nonnegative = np.ceil(num_elements / 2)
@@ -33,7 +33,7 @@ def pad_at_high_freqs(x, n_padded):
 
 
 def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
-    ''' Ported from JaneliaSciComp/Muse.git
+    """ Ported from JaneliaSciComp/Muse.git
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/rsrp_from_xcorr_raw_and_delta_tau.m
 
     Argument types:
@@ -44,7 +44,7 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     Returns:
       - rsrp: ndarray (n_r,)
       - rsrp_per_pairs: ndarray (n_r, n_pairs)
-    '''
+    """
     n_pairs, n_r = tau_diff.shape
     tau_0 = tau_line[0]
     dtau = (tau_line[-1] - tau_line[0]) / (len(tau_line) - 1)
@@ -61,4 +61,29 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     # Originally, this was (1, n_r), here I've made its shape (n_r,)
     rsrp = np.sum(rsrp_per_pairs, axis=1)
     return rsrp, rsrp_per_pairs
+
+
+def mixing_matrix_from_n_mics(n_mics):
+    """ Ported from JaneliaSciComp/Muse.git
+    See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/mixing_matrix_from_n_mics.m
+
+    Parameter types:
+      - n_mics: int, scalar
+    Returns:
+      - M: ndarray: (n_pairs, n_mics), dtype=int, n_pairs = n_mics C 2 = (n_mics) * (n_mics - 1) / 2
+    """
+    # Note: I didn't implement iArrayUpper and jArrayUpper because they were never used outside this function
+    # And the function could be implemented without them
+    n_pairs = n_mics * (n_mics - 1) // 2
+    M = np.zeros((n_pairs, n_mics), dtype=int)
+    i = 0
+    j = 1
+    for row in range(n_pairs):
+        M[row, i] = 1
+        M[row, j] = -1
+        j += 1
+        if j >= n_mics:
+            i += 1
+            j = i + 1
+    return M
 
