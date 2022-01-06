@@ -47,8 +47,8 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
       - rsrp_per_pairs: ndarray (n_r, n_pairs)
     """
     n_pairs, n_r = tau_diff.shape
-    tau_0 = tau_line[0]
-    dtau = (tau_line[-1] - tau_line[0]) / (len(tau_line) - 1)
+    tau_0 = tau_line[0, 0]
+    dtau = (tau_line[-1, -1] - tau_line[0, 0]) / (len(tau_line) - 1)
     rsrp_per_pairs = np.zeros((n_r, n_pairs), dtype=xcorr_raw_all.dtype)
     for i in range(n_r):
         for j in range(n_pairs):
@@ -129,7 +129,7 @@ def rsrp_from_dfted_clip_and_delays_fast(V, dt, tau, verbosity):
     tau_diff_max = np.max(tau_diff)
     tau_diff_min = np.min(tau_diff)
 
-    if (tau_diff_min < tau_line[0]) or (tau_diff_max > tau_line[-1]):
+    if (tau_diff_min < tau_line[0, 0]) or (tau_diff_max > tau_line[-1, -1]):
         nan_rsrp = np.full((n_pts,), np.nan)
         return nan_rsrp, a, None
 
@@ -162,10 +162,10 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
 
     # TODO: double check the axis here
     # Matlab performs the fft on each column independently, treating each column as a vector
-    V = fft(v, axis=0)
+    V = np.fft.fft(v, axis=0)
     f = np.abs(fft_base(N, fs / N))
     # Entries between the two frequencies
-    keep_mask = (f_lo <= f) & (f < f_hi)
+    keep_mask = ((f_lo <= f) & (f < f_hi)).ravel()
 
     # TODO: Consider removing V as a return and correspondingly, perform operations directly on V
     # instead of copying to V_filt
@@ -238,7 +238,7 @@ def argmax_grid(x_grid, y_grid, objective):
     """ Ported from JaneliaSciComp/Muse.git
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/argmax_grid.m
     """
-    i_min = np.argmax(objective)
+    i_min = np.unravel_index(np.argmax(objective), objective.shape)
     objective_max = objective[i_min]
     r_argmax = np.array([[x_grid[i_min]], [y_grid[i_min]]])
     return r_argmax, objective_max
