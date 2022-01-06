@@ -196,3 +196,40 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
 
     return rsrp_grid, a, vel, N_filt, V_filt, V, rsrp_per_pair_grid
 
+
+def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
+    """
+    From https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/xcorr_raw_from_dfted_clip.m
+
+    """
+
+    # calculate the time lag for each element of xcorr_raw
+    N,K = V.shape  # K the number of mikes
+    r=8  # increase in sampling rate
+    N_line=r*N
+    tau_line= np.fft.fftshift(fft_base(N_line,dt/r))  #want large neg times first
+
+    # calculate the cross power spectrum for each pair, show
+    n_pairs = int(K*(K-1)/2)
+    xcorr_raw = np.zeros((N_line,n_pairs))
+
+    for i_pair in range(n_pairs):
+        non_zero_idx = np.where(M[i_pair,:] != 0)[0]
+        i_mike=non_zero_idx[0]
+        j_mike=non_zero_idx[1]
+
+        # calc cross-power spectrum
+        Xcorr_raw_this = V[:,i_mike] * np.conj(V[:,j_mike]);
+
+        # pad it, to increase resolution in time domain
+        Xcorr_raw_this_padded = pad_at_high_freqs(Xcorr_raw_this, N_line);
+
+        #  go to the time domain
+        xcorr_raw_this = np.fft.fftshift(np.real(np.fft.ifft(Xcorr_raw_this_padded)))
+
+        #  store xcorrs
+        xcorr_raw[:,i_pair] = xcorr_raw_this
+
+
+    return xcorr_raw, tau_line
+
