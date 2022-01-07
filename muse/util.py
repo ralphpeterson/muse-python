@@ -257,3 +257,47 @@ def r_est_from_clip_simplfied(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, 
 
     return r_est, rsrp_max, rsrp_grid, a, vel, N_filt, V_filt, V, rsrp_per_pair_grid
 
+def make_xy_grid(x_len, y_len, resolution=0.00025):
+    """
+    Units in meters.
+    
+    Make x_grid and y_grid, given the dimensions of your arena.
+    
+    Resolution refers to the spatial resolution of your grid.
+    
+    """
+    x_dim = int(x_len/resolution)
+    y_dim = int(y_len/resolution)
+
+    x_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, x_len, x_dim).reshape((-1, 1))).T
+    y_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, y_len, y_dim).reshape((1, -1))).T
+    
+    return x_grid, y_grid
+
+def jackknife_snippets(snippets):
+    """
+    N x K (data points, n_mics) matrix to run the jackknife procedure on.
+    
+    Based on Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793/)
+    """
+    _ , K = snippets.shape
+    d = {}
+    for i in range(K):
+        snippets_copy = snippets.copy()
+        d['mic{}omit'.format(i)] = np.delete(snippets_copy, i, 1)
+    
+    return d
+
+def jackknife_R(R):
+    """
+    3 x K (x/y/z coords of mics, n_mics) matrix to run the jackknife procedure on.
+    
+    Based on Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793/)
+    """
+    _, K = R.shape
+    d = {}
+    for i in range(K):
+        R_copy = R.copy()
+        d['R{}omit'.format(i)] = np.delete(R_copy, i, 1)
+    
+    return d
