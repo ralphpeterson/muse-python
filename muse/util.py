@@ -48,7 +48,9 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     """
     n_pairs, n_r = tau_diff.shape
     tau_0 = tau_line[0, 0]
-    dtau = (tau_line[-1, -1] - tau_line[0, 0]) / (len(tau_line) - 1)
+    dtau = (tau_line[-1, -1] - tau_0) / (len(tau_line) - 1)
+
+    """
     rsrp_per_pairs = np.zeros((n_r, n_pairs), dtype=xcorr_raw_all.dtype)
     for i in range(n_r):
         for j in range(n_pairs):
@@ -60,6 +62,15 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
                     (1 - w_hi) * xcorr_raw_all[int(k_lo), j] + \
                     w_hi * xcorr_raw_all[int(k_hi), j]
     # Originally, this was (1, n_r), here I've made its shape (n_r,)
+    """
+
+    k_real = ((tau_diff - tau_0) / dtau + 1).T
+    k_lo = np.floor(k_real).astype(int)
+    k_hi = k_lo + 1
+    w_hi = k_real - k_lo
+
+    _, j = np.indices(k_lo.shape)
+    rsrp_per_pairs = (1 - w_hi) * xcorr_raw_all[k_lo, j] + w_hi * xcorr_raw_all[k_hi, j]
     rsrp = np.sum(rsrp_per_pairs, axis=1)
     return rsrp, rsrp_per_pairs
 
