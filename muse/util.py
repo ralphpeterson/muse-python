@@ -99,7 +99,7 @@ def fft_base(N, dx):
     hi_x_sample_index = np.ceil(N/2).astype('int')
     x_pos = dx*np.linspace(0,hi_x_sample_index-1,hi_x_sample_index)
     x_neg = dx*np.linspace(-(N-hi_x_sample_index), -1, N-hi_x_sample_index)
-    x = np.array([x_pos, x_neg])
+    x = np.concatenate([x_pos, x_neg])[:, np.newaxis]
 
     return x
 
@@ -163,7 +163,7 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
     # TODO: double check the axis here
     # Matlab performs the fft on each column independently, treating each column as a vector
     V = np.fft.fft(v, axis=0)
-    f = np.abs(fft_base(N, fs / N))
+    f = fft_base(N, fs / N)
     # Entries between the two frequencies
     keep_mask = ((f_lo <= f) & (f < f_hi)).ravel()
 
@@ -260,24 +260,24 @@ def r_est_from_clip_simplfied(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, 
 def make_xy_grid(x_len, y_len, resolution=0.00025):
     """
     Units in meters.
-    
+
     Make x_grid and y_grid, given the dimensions of your arena.
-    
+
     Resolution refers to the spatial resolution of your grid.
-    
+
     """
     x_dim = int(x_len/resolution)
     y_dim = int(y_len/resolution)
 
     x_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, x_len, x_dim).reshape((-1, 1))).T
     y_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, y_len, y_dim).reshape((1, -1))).T
-    
+
     return x_grid, y_grid
 
 def jackknife_snippets(snippets):
     """
     N x K (data points, n_mics) matrix to run the jackknife procedure on.
-    
+
     Based on Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793/)
     """
     _ , K = snippets.shape
@@ -285,13 +285,13 @@ def jackknife_snippets(snippets):
     for i in range(K):
         snippets_copy = snippets.copy()
         d['mic{}omit'.format(i)] = np.delete(snippets_copy, i, 1)
-    
+
     return d
 
 def jackknife_R(R):
     """
     3 x K (x/y/z coords of mics, n_mics) matrix to run the jackknife procedure on.
-    
+
     Based on Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793/)
     """
     _, K = R.shape
@@ -299,5 +299,5 @@ def jackknife_R(R):
     for i in range(K):
         R_copy = R.copy()
         d['R{}omit'.format(i)] = np.delete(R_copy, i, 1)
-    
+
     return d
