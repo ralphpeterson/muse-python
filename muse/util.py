@@ -69,6 +69,7 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     k_hi = k_lo + 1
     w_hi = k_real - k_lo
 
+    # There has to be a better way to do this
     _, j = np.indices(k_lo.shape)
     rsrp_per_pairs = (1 - w_hi) * xcorr_raw_all[k_lo, j] + w_hi * xcorr_raw_all[k_hi, j]
     rsrp = np.sum(rsrp_per_pairs, axis=1)
@@ -255,7 +256,7 @@ def argmax_grid(x_grid, y_grid, objective):
     return r_argmax, objective_max
 
 
-def r_est_from_clip_simplfied(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, R, verbosity):
+def r_est_from_clip_simplified(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, R, verbosity):
     """ Ported from JaneliaSciComp/Muse.git
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/r_est_from_clip_simplified.m
 
