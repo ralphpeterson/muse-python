@@ -88,6 +88,8 @@ def mixing_matrix_from_n_mics(n_mics):
     # Note: I didn't implement iArrayUpper and jArrayUpper because they were never used outside this function
     # And the function could be implemented without them
     n_pairs = n_mics * (n_mics - 1) // 2
+    if n_mics > 10:
+        print(f'mixing_matrix_from_n_mics: There appear to be {n_mics} microphones. Perhaps V should be transposed?')
     M = np.zeros((n_pairs, n_mics), dtype=int)
     i = 0
     j = 1
