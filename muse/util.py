@@ -157,7 +157,7 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/rsrp_grid_from_clip_and_xy_grids.m
 
     Argument types:
-      - v: Ndarray (N, n_mics), dtype=np.cfloat; N is the number of time points
+      - v: Ndarray (N, n_mics), dtype=np.float; N is the number of time points
       - fs: float, scalar; The sample rate
       - f_lo: float, scalar; low end of bandpass filter
       - f_hi: float, scalar; top end of bandpass filter
