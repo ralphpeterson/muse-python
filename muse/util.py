@@ -190,16 +190,20 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
     # Note: Temp (original name) replaced with lowercase temp
     vel = velocity_sound(temp)
 
+    # create a grid of points spaced across the arena floor
     n_x, n_y = x_grid.shape
     n_r = n_x * n_y
     r_scan = np.zeros((3, 1, n_r), dtype=x_grid.dtype)
     r_scan[0] = x_grid.reshape((1, -1))
     r_scan[1] = y_grid.reshape((1, -1))
 
-    # The new axis allows the subtraction to be broadcast in the was bsxfun allowed
+    # Calculate the individual coord differences between each grid point and each microphone
+    # Note: the new axis allows the subtraction to be broadcast in the way bsxfun allowed
+    # Specifically, (3, 1, n_r) - (3, 4, 1) --> (3, 4, n_r)
     rsubR = r_scan - R[..., np.newaxis]
-    # Looks like a distance calculation
+    # Calculate Euclidean distance from the individual coordinate differences
     d = np.sqrt(np.sum(rsubR ** 2, axis=0))
+    # Find the expected time delay for each microphone
     tau = d / vel
 
     rsrp, a, rsrp_per_pair = rsrp_from_dfted_clip_and_delays_fast(V_filt, dt, tau, verbosity)
@@ -214,11 +218,13 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
 def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
     """
     From https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/xcorr_raw_from_dfted_clip.m
-
+    Calculate the cross-correlation between signals recorded at each pair (i, j) of microphones,
+    where i < j.
     """
 
     # calculate the time lag for each element of xcorr_raw
     N,K = V.shape  # K the number of mikes
+    # note: r is hardcoded in the original MUSE code
     r=8  # increase in sampling rate
     N_line=r*N
     tau_line= np.fft.fftshift(fft_base(N_line,dt/r))  #want large neg times first
@@ -228,6 +234,7 @@ def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
     xcorr_raw = np.zeros((N_line,n_pairs))
 
     for i_pair in range(n_pairs):
+        # find the values of i and j such that (i, j) corresponds to i_pair
         non_zero_idx = np.where(M[i_pair,:] != 0)[0]
         i_mike=non_zero_idx[0]
         j_mike=non_zero_idx[1]
