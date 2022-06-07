@@ -69,7 +69,7 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     # interpolating linearly into the values we precomputed
 
     # find values in tau_line that sandwich each tau_diff
-    k_real = ((tau_diff - tau_0) / dtau + 1).T
+    k_real = ((tau_diff - tau_0) / dtau).T
     k_lo = np.floor(k_real).astype(int)
     k_hi = k_lo + 1
     w_hi = k_real - k_lo
