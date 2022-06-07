@@ -38,8 +38,8 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/rsrp_from_xcorr_raw_and_delta_tau.m
 
     Argument types:
-      - xcorr_raw_all: ndarray (N, n_pairs)
-      - tau_line: ndarray (N,)
+      - xcorr_raw_all: ndarray (N * 8, n_pairs)
+      - tau_line: ndarray (N * 8, 1)
       - tau_diff: ndarray (n_pairs, n_r)
 
     Returns:
@@ -47,6 +47,7 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
       - rsrp_per_pairs: ndarray (n_r, n_pairs)
     """
     n_pairs, n_r = tau_diff.shape
+    # get interval at which we calculated cross-correlations
     tau_0 = tau_line[0, 0]
     dtau = (tau_line[-1, -1] - tau_0) / (len(tau_line) - 1)
 
@@ -64,6 +65,10 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     # Originally, this was (1, n_r), here I've made its shape (n_r,)
     """
 
+    # compute the cross-correlation for each tau_diff value by
+    # interpolating linearly into the values we precomputed
+
+    # find values in tau_line that sandwich each tau_diff
     k_real = ((tau_diff - tau_0) / dtau + 1).T
     k_lo = np.floor(k_real).astype(int)
     k_hi = k_lo + 1
@@ -227,6 +232,7 @@ def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
     # note: r is hardcoded in the original MUSE code
     r=8  # increase in sampling rate
     N_line=r*N
+    # list of all values at which we calculate the cross-correlation
     tau_line= np.fft.fftshift(fft_base(N_line,dt/r))  #want large neg times first
 
     # calculate the cross power spectrum for each pair, show
