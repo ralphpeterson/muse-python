@@ -114,6 +114,9 @@ def fft_base(N, dx):
 
     Generates a frequency line to go with an N-point fft.
     Frequencies are in cycles per sample, i.e. they go from about -1/2 to about 1/2.
+
+    In other words, given the number of samples (N) and the frequency domain bin width (dx),
+    construct the range of frequency values associated with the fft results.
     """
     hi_x_sample_index = np.ceil(N/2).astype('int')
     x_pos = dx*np.linspace(0,hi_x_sample_index-1,hi_x_sample_index)
@@ -184,7 +187,7 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
     V = np.fft.fft(v, axis=0)
     f = fft_base(N, fs / N)
     # Entries between the two frequencies
-    keep_mask = ((f_lo <= f) & (f < f_hi)).ravel()
+    keep_mask = ((f_lo <= np.abs(f)) & (np.abs(f) < f_hi)).ravel()
 
     # TODO: Consider removing V as a return and correspondingly, perform operations directly on V
     # instead of copying to V_filt
