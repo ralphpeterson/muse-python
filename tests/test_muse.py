@@ -5,6 +5,10 @@ import unittest
 
 from pathlib import Path
 
+# Running these tests requires a matlab installation, as well as installing
+# the matlab engine API for Python, which allows us to run matlab functions
+# from within Python. For instructions on how to get this set up, see:
+# https://www.mathworks.com/help/matlab/matlab-engine-for-python.html
 import matlab
 import matlab.engine
 import numpy as np
@@ -78,6 +82,7 @@ class CompareWithMatlab(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Temporarily download the MATLAB code before running tests."""
         # first clone the matlab repo locally
         os.system(f'git clone {MATLAB_MUSE_REPO} {DOWNLOAD_PATH.resolve()}')
         # start a matlab engine
@@ -87,6 +92,7 @@ class CompareWithMatlab(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        """Delete the MATLAB files to avoid cluttering git repo."""
         # delete the matlab git files
         os.system(f'rm -rf {DOWNLOAD_PATH.resolve()}')
 
