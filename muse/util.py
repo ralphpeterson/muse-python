@@ -38,8 +38,8 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/rsrp_from_xcorr_raw_and_delta_tau.m
 
     Argument types:
-      - xcorr_raw_all: ndarray (N, n_pairs)
-      - tau_line: ndarray (N,)
+      - xcorr_raw_all: ndarray (N * 8, n_pairs)
+      - tau_line: ndarray (N * 8, 1)
       - tau_diff: ndarray (n_pairs, n_r)
 
     Returns:
@@ -47,6 +47,7 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
       - rsrp_per_pairs: ndarray (n_r, n_pairs)
     """
     n_pairs, n_r = tau_diff.shape
+    # get interval at which we calculated cross-correlations
     tau_0 = tau_line[0, 0]
     dtau = (tau_line[-1, -1] - tau_0) / (len(tau_line) - 1)
 
@@ -64,7 +65,11 @@ def rsrp_from_xcorr_raw_and_delta_tau(xcorr_raw_all, tau_line, tau_diff):
     # Originally, this was (1, n_r), here I've made its shape (n_r,)
     """
 
-    k_real = ((tau_diff - tau_0) / dtau + 1).T
+    # compute the cross-correlation for each tau_diff value by
+    # interpolating linearly into the values we precomputed
+
+    # find values in tau_line that sandwich each tau_diff
+    k_real = ((tau_diff - tau_0) / dtau).T
     k_lo = np.floor(k_real).astype(int)
     k_hi = k_lo + 1
     w_hi = k_real - k_lo
@@ -109,6 +114,9 @@ def fft_base(N, dx):
 
     Generates a frequency line to go with an N-point fft.
     Frequencies are in cycles per sample, i.e. they go from about -1/2 to about 1/2.
+
+    In other words, given the number of samples (N) and the frequency domain bin width (dx),
+    construct the range of frequency values associated with the fft results.
     """
     hi_x_sample_index = np.ceil(N/2).astype('int')
     x_pos = dx*np.linspace(0,hi_x_sample_index-1,hi_x_sample_index)
@@ -179,7 +187,7 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
     V = np.fft.fft(v, axis=0)
     f = fft_base(N, fs / N)
     # Entries between the two frequencies
-    keep_mask = ((f_lo <= f) & (f < f_hi)).ravel()
+    keep_mask = ((f_lo <= np.abs(f)) & (np.abs(f) < f_hi)).ravel()
 
     # TODO: Consider removing V as a return and correspondingly, perform operations directly on V
     # instead of copying to V_filt
@@ -190,16 +198,20 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
     # Note: Temp (original name) replaced with lowercase temp
     vel = velocity_sound(temp)
 
+    # create a grid of points spaced across the arena floor
     n_x, n_y = x_grid.shape
     n_r = n_x * n_y
     r_scan = np.zeros((3, 1, n_r), dtype=x_grid.dtype)
     r_scan[0] = x_grid.reshape((1, -1))
     r_scan[1] = y_grid.reshape((1, -1))
 
-    # The new axis allows the subtraction to be broadcast in the was bsxfun allowed
+    # Calculate the individual coord differences between each grid point and each microphone
+    # Note: the new axis allows the subtraction to be broadcast in the way bsxfun allowed
+    # Specifically, (3, 1, n_r) - (3, 4, 1) --> (3, 4, n_r)
     rsubR = r_scan - R[..., np.newaxis]
-    # Looks like a distance calculation
+    # Calculate Euclidean distance from the individual coordinate differences
     d = np.sqrt(np.sum(rsubR ** 2, axis=0))
+    # Find the expected time delay for each microphone
     tau = d / vel
 
     rsrp, a, rsrp_per_pair = rsrp_from_dfted_clip_and_delays_fast(V_filt, dt, tau, verbosity)
@@ -214,13 +226,16 @@ def rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R,
 def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
     """
     From https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/xcorr_raw_from_dfted_clip.m
-
+    Calculate the cross-correlation between signals recorded at each pair (i, j) of microphones,
+    where i < j.
     """
 
     # calculate the time lag for each element of xcorr_raw
     N,K = V.shape  # K the number of mikes
+    # note: r is hardcoded in the original MUSE code
     r=8  # increase in sampling rate
     N_line=r*N
+    # list of all values at which we calculate the cross-correlation
     tau_line= np.fft.fftshift(fft_base(N_line,dt/r))  #want large neg times first
 
     # calculate the cross power spectrum for each pair, show
@@ -228,6 +243,7 @@ def xcorr_raw_from_dfted_clip(V, dt, M, verbosity=0):
     xcorr_raw = np.zeros((N_line,n_pairs))
 
     for i_pair in range(n_pairs):
+        # find the values of i and j such that (i, j) corresponds to i_pair
         non_zero_idx = np.where(M[i_pair,:] != 0)[0]
         i_mike=non_zero_idx[0]
         j_mike=non_zero_idx[1]
