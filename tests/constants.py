@@ -10,6 +10,10 @@ N = 100 # number of samples
 SAMPLE_RATE = 1250
 dt = 1 / SAMPLE_RATE
 
+# frequency range of interest, used to filter out frequencies outside the range
+f_lo = 0
+f_hi = 62500
+
 N_MICS = 4
 
 # --- SPATIAL PARAMS ---
@@ -25,9 +29,13 @@ MIC_POSITIONS = np.array([
     [X_DIM-offset, offset, Z_DIM-offset]
 ]).T
 
+# param describing our desired resolution when calculating RSRP values
+# across the floor of the arena
 GRID_RESOLUTION = 0.25
 
 # calculate a plausible tau value, copying MUSE code
+# note: tau represents the expected sound arrival time delay from each
+# grid point on the arena to each microphone
 x_grid, y_grid = make_xy_grid(X_DIM, Y_DIM, resolution=GRID_RESOLUTION)
 n_gridpoints = x_grid.shape[0] * x_grid.shape[1]
 r_scan = np.zeros((3, 1, n_gridpoints))
@@ -42,5 +50,10 @@ d = np.sqrt(np.sum(coord_differences ** 2, axis=0))
 # the expected time delay between each gridpoint and each microphone
 tau = d / velocity_sound(AIR_TEMP)
 
+# create a helper matrix so we can easily calculate the differences
+# in time delay between each pair of microphones (i, j) where i < j
 M = mixing_matrix_from_n_mics(N_MICS)
+# multiply the two to get an array of shape (n_pairs, n_r),
+# where n_pairs is the number of pairs of mics (i, j) as above
+# and n_r is the total number of gridpoints
 tau_diff = np.matmul(M, tau)
