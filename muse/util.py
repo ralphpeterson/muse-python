@@ -451,30 +451,3 @@ def jackknife_scenario(
         scenarios.append((v_omitted, mic_pos_omitted))
     return scenarios
 
-def jackknife_snippets(snippets):
-    """
-    N x K (data points, n_mics) matrix to run the jackknife procedure on.
-
-    Based on Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793/)
-    """
-    _ , K = snippets.shape
-    d = {}
-    for i in range(K):
-        snippets_copy = snippets.copy()
-        d['mic{}omit'.format(i)] = np.delete(snippets_copy, i, 1)
-
-    return d
-
-def jackknife_R(R):
-    """
-    3 x K (x/y/z coords of mics, n_mics) matrix to run the jackknife procedure on.
-
-    Based on Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793/)
-    """
-    _, K = R.shape
-    d = {}
-    for i in range(K):
-        R_copy = R.copy()
-        d['R{}omit'.format(i)] = np.delete(R_copy, i, 1)
-
-    return d
