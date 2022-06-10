@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Iterable, Tuple
 
 import numpy as np
 from scipy.fft import fft
@@ -290,7 +290,7 @@ def r_est_from_clip_simplified(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage,
     return r_est, rsrp_max, rsrp_grid, a, vel, N_filt, V_filt, V, rsrp_per_pair_grid
 
 
-def r_est_from_clip(
+def r_est_naive(
     v: np.ndarray,
     fs: int,
     f_lo: int,
@@ -302,7 +302,11 @@ def r_est_from_clip(
     mic_positions: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Estimate sound source location from microphone array data.
+    Naively estimate sound source location from microphone array data.
+
+    Specifically, calculate the Reduced Steered Response Power (RSRP)
+    at a grid of points on the room floor, spaced by the provided resolution.
+    Then, return the point with the max RSRP value as well as the grid itself.
 
     Args:
         v: Array of microphone signals. Expected shape: (n_mics, n_samples)
@@ -342,6 +346,64 @@ def r_est_from_clip(
     return r_est, rsrp_grid
 
 
+def r_est_jackknife(
+    v: np.ndarray,
+    fs: int,
+    f_lo: int,
+    f_hi: int,
+    temp: float,
+    x_len: float,
+    y_len: float,
+    resolution: float,
+    mic_positions: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Estimate sound source location from microphone array data using the
+    Jackknife method, from Warren 2018 (https://pubmed.ncbi.nlm.nih.gov/29309793).
+
+    Essentially, this function systematically excludes one microphone and
+    naively estimates the sound source location using the remaining microphones.
+    Repeating this for each microphone yields n_mics point estimates, which are
+    then averaged and returned.
+
+    Args:
+        v: Array of microphone signals. Expected shape: (n_mics, n_samples)
+        fs: The sampling frequency of audio data, in Hz.
+        f_lo: The lower bound of frequency band used, in Hz. Frequencies
+            below this are zeroed after applying the FFT.
+        f_hi: The upper bound of frequency band used, in Hz.
+        temp: Air temperature at which data was collected, in degrees C.
+        x_len: The length of the room, in meters.
+        y_len: The width of the room, in meters.
+        resolution: Desired spatial resolution with which to estimate location.
+        mic_positions: Array storing the position of each microphone in
+            Cartesian coordinates. Expected shape: (n_mics, 3)
+    
+    Returns:
+        A tuple (avg_est, r_estimates, rsrp_grids).
+
+        avg_est: Array of shape (2,1) storing the x and y coordinates of the
+            estimated sound source location, averaged across all point estimates.
+        r_estimates: List of arrays, where the ith array represents the sound
+            source location estimate when microphone i was removed.
+        rsrp_grids: List of arrays, where the ith array stores the
+            RSRP grid result when microphone i was removed. Each grid is an
+            array of calculated RSRP values at points on the arena floor,
+            spaced apart by the specified resolution.
+    """
+    r_estimates = []
+    rsrp_grids = []
+    for v_jk, mic_pos_jk in jackknife_scenario(v, mic_positions):
+        r_est, rsrp_grid = r_est_naive(
+            v_jk, fs, f_lo, f_hi, temp,
+            x_len, y_len, resolution, mic_pos_jk
+        )
+        r_estimates.append(r_est)
+        rsrp_grids.append(rsrp_grid)
+    
+    avg_est = np.mean(r_estimates, axis=0)
+    return avg_est, r_estimates, rsrp_grids
+
 def make_xy_grid(x_len, y_len, resolution=0.00025):
     """
     Units in meters.
@@ -358,6 +420,36 @@ def make_xy_grid(x_len, y_len, resolution=0.00025):
     y_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, y_len, y_dim).reshape((1, -1))).T
 
     return x_grid, y_grid
+
+def jackknife_scenario(
+    v: np.ndarray,
+    mic_positions: np.ndarray
+) -> Iterable[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Helper function for estimation source location with Jackknife.
+
+    This function returns a list of tuples, where the ith tuple (v_jk, mic_pos_jk)
+    stores the audio and mic_positions arrays with mic i removed.
+
+    Args:
+        v: Audio data. Expected shape: (n_mics, n_samples)
+        mic_positions: Positions of the mics. Expected shape: (n_mics, 3)
+    
+    Returns:
+        A list of tuples (v_jk, mic_pos_jk) as described above. Note that each
+        v_jk is of shape (n_mics - 1, n_samples) and each mic_pos_jk is of shape
+        (n_mics - 1, 3).
+    """
+    n_mics = v.shape[0]
+    scenarios = []
+    # systematically remove each mic
+    for i in range(n_mics):
+        # note: delete along axis 0 because we expect n_mics to
+        # be the first axis
+        v_omitted = np.delete(v, i, axis=0)
+        mic_pos_omitted = np.delete(mic_positions, i, axis=0)
+        scenarios.append((v_omitted, mic_pos_omitted))
+    return scenarios
 
 def jackknife_snippets(snippets):
     """
