@@ -1,7 +1,6 @@
 from typing import Iterable, Tuple
 
 import numpy as np
-from scipy.fft import fft
 
 
 def velocity_sound(T):
@@ -391,15 +390,23 @@ def r_est_jackknife(
     """
     r_estimates = []
     rsrp_grids = []
-    for v_jk, mic_pos_jk in jackknife_scenario(v, mic_positions):
+
+    N_MICS = v.shape[0]
+
+    for i in range(N_MICS):
+        # remove mic i from audio and mic position arrays
+        v_omitted = np.delete(v, i, axis=0)
+        mic_pos_omitted = np.delete(mic_positions, i, axis=0)
+        # calculate estimates
         r_est, rsrp_grid = r_est_naive(
-            v_jk, fs, f_lo, f_hi, temp,
-            x_len, y_len, resolution, mic_pos_jk
+            v_omitted, fs, f_lo, f_hi, temp,
+            x_len, y_len, resolution, mic_pos_omitted
         )
         r_estimates.append(r_est)
         rsrp_grids.append(rsrp_grid)
     
     avg_est = np.mean(r_estimates, axis=0)
+
     return avg_est, r_estimates, rsrp_grids
 
 def make_xy_grid(x_len, y_len, resolution=0.00025):
@@ -418,34 +425,3 @@ def make_xy_grid(x_len, y_len, resolution=0.00025):
     y_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, y_len, y_dim).reshape((1, -1))).T
 
     return x_grid, y_grid
-
-def jackknife_scenario(
-    v: np.ndarray,
-    mic_positions: np.ndarray
-) -> Iterable[Tuple[np.ndarray, np.ndarray]]:
-    """
-    Helper function for estimation source location with Jackknife.
-
-    This function returns a list of tuples, where the ith tuple (v_jk, mic_pos_jk)
-    stores the audio and mic_positions arrays with mic i removed.
-
-    Args:
-        v: Audio data. Expected shape: (n_mics, n_samples)
-        mic_positions: Positions of the mics. Expected shape: (n_mics, 3)
-    
-    Returns:
-        A list of tuples (v_jk, mic_pos_jk) as described above. Note that each
-        v_jk is of shape (n_mics - 1, n_samples) and each mic_pos_jk is of shape
-        (n_mics - 1, 3).
-    """
-    n_mics = v.shape[0]
-    scenarios = []
-    # systematically remove each mic
-    for i in range(n_mics):
-        # note: delete along axis 0 because we expect n_mics to
-        # be the first axis
-        v_omitted = np.delete(v, i, axis=0)
-        mic_pos_omitted = np.delete(mic_positions, i, axis=0)
-        scenarios.append((v_omitted, mic_pos_omitted))
-    return scenarios
-
