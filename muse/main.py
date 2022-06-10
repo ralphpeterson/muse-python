@@ -1,4 +1,4 @@
-"""Clean interface for main MUSE functions."""
+"""Clean, Pythonic interface for main MUSE functions."""
 
 from typing import Tuple
 
@@ -7,22 +7,28 @@ import numpy as np
 from muse.util import r_est_from_clip_simplified
 
 
-def make_xy_grid(x_len, y_len, resolution=0.00025):
+def make_xy_grid(x_len: float, y_len: float, resolution=0.00025) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Units in meters.
+    Given the dimensions of an arena and a desired grid resolution,
+    return a tuple (x_grid, y_grid), where x_grid is a 2D numpy array
+    storing the x-coordinate of every gridpoint. Similarly, y_grid stores
+    the y-coordinate of every gridpoint.
 
-    Make x_grid and y_grid, given the dimensions of your arena.
+    Args:
+        x_len: Length of the x dimension of the arena, in meters.
+        y_len: Length of the y dimension, in meters.
+        resolution: Desired spatial resolution of grid, in meters.
 
-    Resolution refers to the spatial resolution of your grid.
-
+    Returns:
+        A tuple (x_grid, y_grid) as above.
     """
     x_dim = int(x_len/resolution)
     y_dim = int(y_len/resolution)
 
-    x_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, x_len, x_dim).reshape((-1, 1))).T
-    y_grid = (np.ones((x_dim, y_dim)) * np.linspace(0, y_len, y_dim).reshape((1, -1))).T
+    x_coords = np.linspace(0, x_len, x_dim)
+    y_coords = np.linspace(0, y_len, y_dim)
 
-    return x_grid, y_grid
+    return np.meshgrid(x_coords, y_coords)
 
 
 def r_est_naive(
