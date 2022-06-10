@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 from scipy.fft import fft
 
@@ -286,6 +288,59 @@ def r_est_from_clip_simplified(v, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage,
     r_est, rsrp_max = argmax_grid(x_grid, y_grid, rsrp_grid)
 
     return r_est, rsrp_max, rsrp_grid, a, vel, N_filt, V_filt, V, rsrp_per_pair_grid
+
+
+def r_est_from_clip(
+    v: np.ndarray,
+    fs: int,
+    f_lo: int,
+    f_hi: int,
+    temp: float,
+    x_len: float,
+    y_len: float,
+    resolution: float,
+    mic_positions: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Estimate sound source location from microphone array data.
+
+    Args:
+        v: Array of microphone signals. Expected shape: (n_mics, n_samples)
+        fs: The sampling frequency of audio data, in Hz.
+        f_lo: The lower bound of frequency band used, in Hz. Frequencies
+            below this are zeroed after applying the FFT.
+        f_hi: The upper bound of frequency band used, in Hz.
+        temp: Air temperature at which data was collected, in degrees C.
+        x_len: The length of the room, in meters.
+        y_len: The width of the room, in meters.
+        resolution: Desired spatial resolution with which to estimate location.
+        mic_positions: Array storing the position of each microphone in
+            Cartesian coordinates. Expected shape: (n_mics, 3)
+
+    Returns:
+        A tuple (r_est, rsrp_grid).
+        
+        r_est: Array of shape (2,1) storing the x and y coordinates of the
+            estimated sound source location.
+        rsrp_grid: Array storing the calculated RSRP values at points on
+            the arena floor, spaced apart by the specified resolution.
+    """
+    # make grids using the provided room dimensions
+    x_grid, y_grid = make_xy_grid(x_len, y_len, resolution=resolution)
+
+    # get the rsrp values
+    # note: transpose v and mic_positions because matlab expects
+    # v to be shape (n_samples, n_mics) and mic_positions to be shape
+    # (3, n_mics)
+    rsrp_grid, _ , _ , _, _, _, _ = rsrp_grid_from_clip_and_xy_grids(
+        v.T, fs, f_lo, f_hi, temp, x_grid, y_grid, mic_positions.T, verbosity=0
+        )
+
+    # find the location with the maximum rsrp value
+    r_est, _ = argmax_grid(x_grid, y_grid, rsrp_grid)
+
+    return r_est, rsrp_grid
+
 
 def make_xy_grid(x_len, y_len, resolution=0.00025):
     """
