@@ -13,11 +13,12 @@ import matlab
 import matlab.engine
 import numpy as np
 
+from muse.main import r_est_naive, make_xy_grid
 from muse.util import (
-    argmax_grid, fft_base, make_xy_grid, mixing_matrix_from_n_mics,
-    pad_at_high_freqs, r_est_from_clip_simplified, r_est_naive,
-    rsrp_from_dfted_clip_and_delays_fast, rsrp_from_xcorr_raw_and_delta_tau,
-    rsrp_grid_from_clip_and_xy_grids, velocity_sound, xcorr_raw_from_dfted_clip
+    argmax_grid, fft_base, mixing_matrix_from_n_mics, pad_at_high_freqs,
+    r_est_from_clip_simplified, rsrp_from_dfted_clip_and_delays_fast,
+    rsrp_from_xcorr_raw_and_delta_tau,rsrp_grid_from_clip_and_xy_grids,
+    velocity_sound, xcorr_raw_from_dfted_clip
     )
 
 import constants as c

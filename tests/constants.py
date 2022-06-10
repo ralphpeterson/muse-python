@@ -1,7 +1,8 @@
 """Plausible constants for an audio scenario, used for testing."""
 import numpy as np
 
-from muse.util import make_xy_grid, mixing_matrix_from_n_mics, velocity_sound
+from muse.main import make_xy_grid
+from muse.util import mixing_matrix_from_n_mics, velocity_sound
 
 AIR_TEMP = 20 # in degrees C
 

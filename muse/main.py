@@ -4,7 +4,7 @@ from typing import Tuple
 
 import numpy as np
 
-from util import r_est_from_clip_simplified
+from muse.util import r_est_from_clip_simplified
 
 
 def make_xy_grid(x_len, y_len, resolution=0.00025):
