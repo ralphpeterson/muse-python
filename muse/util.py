@@ -333,15 +333,13 @@ def r_est_naive(
     x_grid, y_grid = make_xy_grid(x_len, y_len, resolution=resolution)
 
     # get the rsrp values
+    in_cage = None # unused param
     # note: transpose v and mic_positions because matlab expects
     # v to be shape (n_samples, n_mics) and mic_positions to be shape
     # (3, n_mics)
-    rsrp_grid, _ , _ , _, _, _, _ = rsrp_grid_from_clip_and_xy_grids(
-        v.T, fs, f_lo, f_hi, temp, x_grid, y_grid, mic_positions.T, verbosity=0
+    r_est, _, rsrp_grid, _, _, _, _, _, _ = r_est_from_clip_simplified(
+        v.T, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, mic_positions.T, verbosity=0
         )
-
-    # find the location with the maximum rsrp value
-    r_est, _ = argmax_grid(x_grid, y_grid, rsrp_grid)
 
     return r_est, rsrp_grid
 
