@@ -3,32 +3,41 @@
 import numpy as np
 
 
-def velocity_sound(T):
+def velocity_sound(T: float) -> float:
     """
-    From https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/velocity_sound.m
+    Calculate the velocity of sound (m/s) based on the air temperature (degrees C).
 
-    This function calculates the velocity of sound based on the temp during recording.
-
-    Formula for speed of sound in air taken from signals, sound and sensation (hartmann).
-
-    T is the temp in Celsius, Vsound is the speed of sound in m/s.
+    The below formula is taken from Signals, Sound and Sensation (Hartmann, 1998).
+    For more information, see:
+    https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/velocity_sound.m
     """
     Vsound = 331.3*np.sqrt(1+(T/273.16))
     return Vsound
 
 
-def pad_at_high_freqs(x, n_padded):
-    """ Ported from JaneliaSciComp/Muse.git
+def pad_at_high_freqs(x: np.ndarray, n_padded: int) -> np.ndarray:
+    """
+    Pad an input in the frequency domain to increase sampling rate once an IFFT
+    is applied and we return to the time domain.
+
+    Given the result of a FFT, x, and a desired output length, n_padded, return
+    a new array of the desired length padded with zeroes.
+
     See comments on https://github.com/JaneliaSciComp/Muse/blob/master/toolbox/pad_at_high_freqs.m
     """
     num_elements = len(x)
     ratio = n_padded / num_elements
+
+    # split the array into negative and nonnegative sections
     num_nonnegative = int(np.ceil(num_elements / 2))
     num_negative = num_elements - num_nonnegative
     x_nonneg_freq = x[:num_nonnegative]
     x_neg_freq = x[num_nonnegative:]
 
+    # then pad the middle with zeros
     x_padded = np.zeros((n_padded,), dtype=x.dtype)
+    # note: we multiply the amplitude by `ratio` to avoid modifying the
+    # original amplitudes in the time domain
     x_padded[:num_nonnegative] = ratio * x_nonneg_freq
     x_padded[-num_negative:] = ratio * x_neg_freq
     return x_padded
