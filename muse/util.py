@@ -401,7 +401,9 @@ def xcorr_raw_from_dfted_clip(V: np.ndarray, dt: float, M: np.ndarray, verbosity
 
 
 def argmax_grid(
-    x_grid: np.ndarray, y_grid: np.ndarray, objective: np.ndarray
+    x_grid: np.ndarray,
+    y_grid: np.ndarray,
+    objective: np.ndarray
 ) -> Tuple[np.ndarray, float]:
     """
     Return the x and y coordinates of the location with the maximum value
@@ -495,7 +497,9 @@ def r_est_from_clip_simplified(
             (x_grid.shape[0], x_grid.shape[1], n_pairs). 
     """
 
-    rsrp_grid,a,vel,N_filt,V_filt,V, xcorr_per_pair_grid = rsrp_grid_from_clip_and_xy_grids(v, fs, f_lo, f_hi, temp, x_grid, y_grid, R, verbosity)
+    rsrp_grid,a,vel,N_filt,V_filt,V, xcorr_per_pair_grid = rsrp_grid_from_clip_and_xy_grids(
+        v, fs, f_lo, f_hi, temp, x_grid, y_grid, R, verbosity
+        )
 
     r_est, rsrp_max = argmax_grid(x_grid, y_grid, rsrp_grid)
 

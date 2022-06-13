@@ -1,4 +1,5 @@
 """Plausible constants for an audio scenario, used for testing."""
+
 import numpy as np
 
 from muse.main import make_xy_grid
