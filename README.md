@@ -39,7 +39,7 @@ mic_pos = np.array([
     [1.8, 0.8, 1]
 ])
 
-avg_est, r_ests, rsrp_grids = r_est_jackknife( v, fs, f_lo, f_hi, temp, x_len, y_len, res, mic_pos )
+avg_est, r_ests, rsrp_grids = r_est_jackknife(v, fs, f_lo, f_hi, temp, x_len, y_len, res, mic_pos)
 
 print(f'--- Averaged Estimate --- \n{avg_est}')
 print('--- Point Estimates --- ')
