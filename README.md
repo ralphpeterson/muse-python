@@ -6,15 +6,15 @@ The main functions of this library are `r_est_naive` and `r_est_jackknife`. The 
 of points in an arena, returning both the location of the maximum RSRP value as well as the grid itself.
 
 `r_est_jackknife` builds on this by calculating *multiple* location estimates as in [(Warren, 2018)](https://pubmed.ncbi.nlm.nih.gov/29309793).
-For each vocal signal, `r_est_jackknife` systematically excludes one microphone, calculating one point estimate using only the data from the other microphones.
+For each vocal signal, `r_est_jackknife` systematically excludes one microphone, calculating a point estimate using only the data from the other microphones.
 This process is repeated for each mic, leading to a group of location estimates that are then averaged.
 
-For a detailed example using `r_est_jackknife`, see `examples/pyroomacoustics_muse_usage.ipynb`,
+For a detailed example, see `examples/pyroomacoustics_muse_usage.ipynb`,
 where we use the library `pyroomacoustics` to simulate the microphone data that would be
 recieved from a given audio source. 
 
 For a quickstart, see the following simple example with randomly generated 'microphone input'.
-```
+```python
 import numpy as np
 from muse import r_est_jackknife
 
@@ -39,13 +39,15 @@ mic_pos = np.array([
     [1.8, 0.8, 1]
 ])
 
-r_est, rsrp_grid = r_est_jackknife( v, fs, f_lo, f_hi, temp, x_len, y_len, res, mic_pos )
+avg_est, r_ests, rsrp_grids = r_est_jackknife( v, fs, f_lo, f_hi, temp, x_len, y_len, res, mic_pos )
 
-print(f'--- Averaged Estimate --- \n{r_est}')
+print(f'--- Averaged Estimate --- \n{avg_est}')
 print('--- Point Estimates --- ')
 for i, est in enumerate(r_ests):
     print(f'Mic {i} removed:\n {est}')
 ```
+Note that `avg_est` is the averaged result, `r_ests` is an array containing each point estimate, and `rsrp_grids` stores the full grid of RSRP values associated with each point estimate.
+
 Out:
 ```
 --- Averaged Estimate --- 
