@@ -34,7 +34,8 @@ from muse import r_est_jackknife
 n_mics = 4
 N = 10000  # number of samples
 fs = 100000  # sample rate, in Hz
-v = np.random.random(n_mics * N).reshape((n_mics, N))
+rng = np.random.default_rng(seed=2022)  # seed a RNG for reproducibility
+v = rng.random(n_mics * N).reshape((n_mics, N))
 
 temp = 20  # temperature of the room in Celsius
 f_lo = 0  # minimum frequency considered, in Hz
@@ -63,19 +64,19 @@ Note that `avg_est` is the averaged result, `r_ests` is an array containing each
 Out:
 ```
 --- Averaged Estimate --- 
-[[0.87431943]
- [1.57473846]]
+[[0.6474359 ]
+ [1.12658228]]
 --- Point Estimates --- 
 Mic 0 removed:
  [[0.64102564]
- [0.2278481 ]]
+ [1.56962025]]
 Mic 1 removed:
- [[0.12820513]
- [0.4556962 ]]
+ [[0.53846154]
+ [1.36708861]]
 Mic 2 removed:
- [[0.35897436]
- [0.83544304]]
+ [[0.8974359 ]
+ [0.48101266]]
 Mic 3 removed:
- [[0.69230769]
- [0.58227848]]
+ [[0.51282051]
+ [1.08860759]]
 ```
