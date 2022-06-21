@@ -34,8 +34,8 @@ from muse import r_est_jackknife
 n_mics = 4
 N = 10000  # number of samples
 fs = 100000  # sample rate, in Hz
-rng = np.random.default_rng(seed=2022)  # seed a RNG for reproducibility
-v = rng.random(n_mics * N).reshape((n_mics, N))
+rng = np.random.default_rng(seed=2022)
+v = rng.random(size=(n_mics, N))
 
 temp = 20  # temperature of the room in Celsius
 f_lo = 0  # minimum frequency considered, in Hz
