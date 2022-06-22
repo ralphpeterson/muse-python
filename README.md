@@ -39,7 +39,7 @@ v = rng.random(size=(n_mics, N))
 
 temp = 20  # temperature of the room in Celsius
 f_lo = 0  # minimum frequency considered, in Hz
-f_hi = 62500  # max frequency considered, in Hz
+f_hi = fs/2  # max frequency considered, in Hz
 
 # spatial parameters
 x_len, y_len = (1, 2) # arbitrary dimensions of the room
