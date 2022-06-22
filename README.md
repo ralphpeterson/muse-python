@@ -14,9 +14,9 @@ $ pip install git+https://github.com/ralphpeterson/muse-python
 ## Overview
 The main functions of this library are `r_est_naive` and `r_est_jackknife`. The function `r_est_naive` calculates the Reduced Steered Response Power (RSRP) at a grid
 of points in an arena, returning both the location of the maximum RSRP value as well as the grid itself.
-For more on RSRP values, see the [original Neunebel paper](https://doi.org/10.7554/eLife.06203), which describes the calculation and rationale in detail.
+For more on RSRP values, see the [original Neunebel et al. 2015 paper](https://doi.org/10.7554/eLife.06203), which describes the calculation and rationale in detail.
 
-`r_est_jackknife` builds on this by calculating *multiple* location estimates as in [(Warren, 2018)](https://pubmed.ncbi.nlm.nih.gov/29309793).
+`r_est_jackknife` builds on this by calculating *multiple* location estimates as in [(Warren et al. 2018)](https://pubmed.ncbi.nlm.nih.gov/29309793).
 For each vocal signal, `r_est_jackknife` systematically excludes one microphone, calculating a point estimate using only the data from the other microphones.
 This process is repeated for each mic, leading to a group of location estimates that are then averaged.
 
