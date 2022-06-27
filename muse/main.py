@@ -1,5 +1,7 @@
 """Clean, Pythonic interface for main MUSE functions."""
 
+import itertools
+
 from typing import Tuple
 
 import numpy as np
@@ -168,20 +170,16 @@ def r_est_jackknife(
     # so to get the RSRP values for every mic save i, add up every row
     # whose corresponding mic pair doesn't include mic i
 
-    def idxs_to_include(n_mics, mic_removed_idx):
+    def idxs_to_include(n_mics, mic_to_remove):
         """
         Get the indices of the pairs that should still be included after
-        removing microphone `mic_removed_idx`.
+        removing microphone `mic_to_remove`.
         """
-        to_include = []
-        row_idx = 0
-        # iterate over all microphone pairs (i,j) with i < j
-        for i in range(n_mics):
-            for j in range(i + 1, n_mics):
-                if i != mic_removed_idx and j != mic_removed_idx:
-                    to_include.append(row_idx)
-                row_idx += 1
-        return to_include
+        # get all pairs of microphones (i, j) with i < j
+        pairs = itertools.combinations(range(n_mics), 2)
+        # keep the indices of pairs that don't contain mic `mic_to_remove`
+        idxs = [i for i, pair in enumerate(pairs) if mic_to_remove not in pair]
+        return idxs
 
     r_estimates = []
     rsrp_grids = []
