@@ -152,6 +152,7 @@ def r_est_jackknife_slow(
 
     return avg_est, r_estimates, rsrp_grids
 
+
 def r_est_jackknife(
     v: np.ndarray,
     fs: int,
@@ -197,17 +198,26 @@ def r_est_jackknife(
             array of calculated RSRP values at points on the arena floor,
             spaced apart by the specified resolution.
     """
+    # to speed up the jackknife procedure, rather than applying r_est_naive
+    # to each subset of data with one mic removed, we directly calculate
+    # the RSRP values and estimates from the cross-correlation values
+
+    # why would we want to do this? because RSRP is defined to be the
+    # sum of these cross-correlations. so this way, we avoid repeatedly
+    # calling r_est_naive
+
+    # so, run r_est_from_clip_simplified and just consider the xcorrs
+
     # make grids using the provided room dimensions
     x_grid, y_grid = make_xy_grid(x_len, y_len, resolution=resolution)
-
-    # get the rsrp values
 
     in_cage = None # unused param
     # note: transpose v and mic_positions because matlab expects
     # v to be shape (n_samples, n_mics) and mic_positions to be shape
     # (3, n_mics)
     _, _, _, _, _, _, _, _, xcorr_per_pair_grid = r_est_from_clip_simplified(
-        v.T, fs, f_lo, f_hi, temp, x_grid, y_grid, in_cage, mic_positions.T, verbosity=0
+        v.T, fs, f_lo, f_hi, temp, x_grid, y_grid,
+        in_cage, mic_positions.T, verbosity=0
         )
     
     # now that we have the cross-correlations for each pair of microphones,
@@ -226,8 +236,13 @@ def r_est_jackknife(
     # whose corresponding mic pair doesn't include mic i
 
     def idxs_to_include(n_mics, mic_removed_idx):
+        """
+        Get the indices of the pairs that should still be included after
+        removing microphone `mic_removed_idx`.
+        """
         to_include = []
         row_idx = 0
+        # iterate over all microphone pairs (i,j) with i < j
         for i in range(n_mics):
             for j in range(i + 1, n_mics):
                 if i != mic_removed_idx and j != mic_removed_idx:
@@ -241,8 +256,7 @@ def r_est_jackknife(
     N_MICS = v.shape[0]
 
     for i in range(N_MICS):
-        # find the indices along the pairs axis that don't include
-        # mic i
+        # find the indices along the pairs axis that don't include mic i
         idxs = idxs_to_include(N_MICS, i)
         # calculate the RSRP values by summing up the cross correlations
         # for each pair
