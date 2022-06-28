@@ -14,7 +14,7 @@ import matlab
 import matlab.engine
 import numpy as np
 
-from muse.main import r_est_jackknife, r_est_naive, make_xy_grid
+from muse.main import r_est_naive, make_xy_grid
 from muse.util import (
     argmax_grid, fft_base, mixing_matrix_from_n_mics, pad_at_high_freqs,
     r_est_from_clip_simplified, rsrp_from_dfted_clip_and_delays_fast,
@@ -29,57 +29,6 @@ from util import np_to_matlab, assert_np_matlab_almost_equal, assert_np_matlab_b
 MATLAB_MUSE_REPO = 'https://github.com/JaneliaSciComp/Muse.git'
 DOWNLOAD_PATH = Path('tests/muse')
 TOOLBOX_PATH = DOWNLOAD_PATH / 'toolbox'
-
-
-class CheckJackknife(unittest.TestCase):
-    """
-    Check that the faster Jackknife implementation is consistent
-    with the naive way.
-    """
-
-    def test_jackknife(self):
-        for audio_input in np.random.random(size=(10, c.N_MICS, c.N)):
-            # naive jackknife procedure:
-            # iteratively remove each microphone from the audio input
-            # and mic position arrays, then run r_est_naive
-            naive_r_estimates = []
-            naive_rsrp_grids = []
-
-            transposed_positions = c.MIC_POSITIONS.T
-            for i in range(c.N_MICS):
-                # remove mic i from audio and mic position arrays
-                v_omitted = np.delete(audio_input, i, axis=0)
-                mic_pos_omitted = np.delete(transposed_positions, i, axis=0)
-                # calculate estimates
-                r_est, rsrp_grid = r_est_naive(
-                    v_omitted, c.SAMPLE_RATE, c.f_lo, c.f_hi, c.AIR_TEMP,
-                    c.X_DIM, c.Y_DIM, c.GRID_RESOLUTION, mic_pos_omitted
-                )
-                naive_r_estimates.append(r_est)
-                naive_rsrp_grids.append(rsrp_grid)
-            
-            naive_avg_est = np.mean(naive_r_estimates, axis=0)
-
-            # faster version
-            faster_avg_est, faster_r_ests, faster_rsrp_grids = r_est_jackknife(
-                audio_input,
-                c.SAMPLE_RATE,
-                c.f_lo,
-                c.f_hi,
-                c.AIR_TEMP,
-                c.X_DIM,
-                c.Y_DIM,
-                c.GRID_RESOLUTION,
-                transposed_positions
-            )
-
-            np.testing.assert_array_almost_equal(naive_avg_est, faster_avg_est)
-
-            for naive_est, faster_est in zip(naive_r_estimates, faster_r_ests):
-                np.testing.assert_array_almost_equal(naive_est, faster_est)
-
-            for naive_grid, faster_grid in zip(naive_rsrp_grids, faster_rsrp_grids):
-                np.testing.assert_array_almost_equal(naive_grid, faster_grid)
 
 
 class CompareWithMatlab(unittest.TestCase):
