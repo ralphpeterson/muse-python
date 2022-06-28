@@ -356,7 +356,7 @@ def xcorr_raw_from_dfted_clip(V: np.ndarray, dt: float, M: np.ndarray, verbosity
     Returns:
         A tuple (xcorr_raw, tau_line).
 
-        xcorr_raw: Array of shape (N*8, n_pairs) storing the cross-
+        xcorr_raw: Array of shape (n_pairs, n_mics) storing the cross-
             correlation values for each pair of microphones (i, j)
             with i < j, where the xcorr function is evaluated at each point
             of the frequency spectrum outputted by the FFT of V.
