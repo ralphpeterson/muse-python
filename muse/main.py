@@ -1,10 +1,12 @@
 """Clean, Pythonic interface for main MUSE functions."""
 
+import itertools
+
 from typing import Tuple
 
 import numpy as np
 
-from muse.util import r_est_from_clip_simplified
+from muse.util import argmax_grid, r_est_from_clip_simplified
 
 
 def make_xy_grid(x_len: float, y_len: float, resolution=0.00025) -> Tuple[np.ndarray, np.ndarray]:
@@ -131,22 +133,68 @@ def r_est_jackknife(
             array of calculated RSRP values at points on the arena floor,
             spaced apart by the specified resolution.
     """
+    # to speed up the jackknife procedure, rather than applying r_est_naive
+    # to each subset of data with one mic removed, we directly calculate
+    # the RSRP values and estimates from the cross-correlation values
+
+    # why would we want to do this? because RSRP is defined to be the
+    # sum of these cross-correlations. so this way, we avoid repeatedly
+    # calling r_est_naive
+
+    # so, run r_est_from_clip_simplified and just consider the xcorrs
+
+    # make grids using the provided room dimensions
+    x_grid, y_grid = make_xy_grid(x_len, y_len, resolution=resolution)
+
+    in_cage = None # unused param
+    # note: transpose v and mic_positions because matlab expects
+    # v to be shape (n_samples, n_mics) and mic_positions to be shape
+    # (3, n_mics)
+    _, _, _, _, _, _, _, _, xcorr_per_pair_grid = r_est_from_clip_simplified(
+        v.T, fs, f_lo, f_hi, temp, x_grid, y_grid,
+        in_cage, mic_positions.T, verbosity=0
+        )
+    
+    # now that we have the cross-correlations for each pair of microphones,
+    # we can selectively sum them, removing one microphone at a time
+
+    # xcorr_per_pair_grid has shape (xgrid.shape[0], xgrid.shape[1], n_pairs),
+    # where the pairs are ordered as follows for a four mic scenario:
+    # (1, 2)  pair with mic 1 and mic 2
+    # (1, 3)
+    # (1, 4)
+    # (2, 3)
+    # (2, 4)
+    # (3, 4)
+
+    # so to get the RSRP values for every mic save i, add up every row
+    # whose corresponding mic pair doesn't include mic i
+
+    def idxs_to_include(n_mics, mic_to_remove):
+        """
+        Get the indices of the pairs that should still be included after
+        removing microphone `mic_to_remove`.
+        """
+        # get all pairs of microphones (i, j) with i < j
+        pairs = itertools.combinations(range(n_mics), 2)
+        # keep the indices of pairs that don't contain mic `mic_to_remove`
+        idxs = [i for i, pair in enumerate(pairs) if mic_to_remove not in pair]
+        return idxs
+
     r_estimates = []
     rsrp_grids = []
 
     N_MICS = v.shape[0]
 
     for i in range(N_MICS):
-        # remove mic i from audio and mic position arrays
-        v_omitted = np.delete(v, i, axis=0)
-        mic_pos_omitted = np.delete(mic_positions, i, axis=0)
-        # calculate estimates
-        r_est, rsrp_grid = r_est_naive(
-            v_omitted, fs, f_lo, f_hi, temp,
-            x_len, y_len, resolution, mic_pos_omitted
-        )
-        r_estimates.append(r_est)
+        # find the indices along the pairs axis that don't include mic i
+        idxs = idxs_to_include(N_MICS, i)
+        # calculate the RSRP values by summing up the cross correlations
+        # for each pair
+        rsrp_grid = xcorr_per_pair_grid[:, :, idxs].sum(axis=2)
         rsrp_grids.append(rsrp_grid)
+        r_est, _ = argmax_grid(x_grid, y_grid, rsrp_grid)
+        r_estimates.append(r_est)
     
     avg_est = np.mean(r_estimates, axis=0)
 
