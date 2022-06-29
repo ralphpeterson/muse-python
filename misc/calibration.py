@@ -66,10 +66,10 @@ def f_2d(
     return s
 
 def calibration_curve(
-    model_output,
-    true_coords,
-    xgrid,
-    ygrid,
+    model_output: np.ndarray,
+    true_coords: np.ndarray,
+    xgrid: np.ndarray,
+    ygrid: np.ndarray,
     ax = None,
     n_bins=10
     ):
