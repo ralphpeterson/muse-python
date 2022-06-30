@@ -1,4 +1,4 @@
-"""Unit tests for MUSE."""
+"""Test Python MUSE functions against their MATLAB counterparts."""
 
 import os
 import unittest
@@ -9,18 +9,21 @@ from pathlib import Path
 # the matlab engine API for Python, which allows us to run matlab functions
 # from within Python. For instructions on how to get this set up, see:
 # https://www.mathworks.com/help/matlab/matlab-engine-for-python.html
+
 import matlab
 import matlab.engine
 import numpy as np
 
+from muse.main import r_est_jackknife, r_est_naive, make_xy_grid
 from muse.util import (
-    argmax_grid, fft_base, make_xy_grid, mixing_matrix_from_n_mics,
-    pad_at_high_freqs, r_est_from_clip_simplified, rsrp_from_dfted_clip_and_delays_fast,
-    rsrp_from_xcorr_raw_and_delta_tau, rsrp_grid_from_clip_and_xy_grids, velocity_sound,
-    xcorr_raw_from_dfted_clip
+    argmax_grid, fft_base, mixing_matrix_from_n_mics, pad_at_high_freqs,
+    r_est_from_clip_simplified, rsrp_from_dfted_clip_and_delays_fast,
+    rsrp_from_xcorr_raw_and_delta_tau,rsrp_grid_from_clip_and_xy_grids,
+    velocity_sound, xcorr_raw_from_dfted_clip
     )
 
 import constants as c
+from util import np_to_matlab, assert_np_matlab_almost_equal, assert_np_matlab_bulk
 
 
 MATLAB_MUSE_REPO = 'https://github.com/JaneliaSciComp/Muse.git'
@@ -28,54 +31,56 @@ DOWNLOAD_PATH = Path('tests/muse')
 TOOLBOX_PATH = DOWNLOAD_PATH / 'toolbox'
 
 
-def np_to_matlab(arr: np.ndarray):
-    """Convert a numpy array to a matlab array of matching type."""
-    # first convert arr to a nested list, which matlab arr constructor expects
-    nested = arr.tolist()
-    # return the appropriately typed matlab array
-    if arr.dtype == np.int_:
-        return matlab.int64(nested)
-    if arr.dtype == np.bool_:
-        return matlab.logical(nested)
-    if arr.dtype == np.float_:
-        return matlab.double(nested)
-    if arr.dtype == np.complex_:
-        return matlab.double(nested, is_complex=True)
+class CheckJackknife(unittest.TestCase):
+    """
+    Check that the faster Jackknife implementation is consistent
+    with the naive way.
+    """
 
-def assert_np_matlab_almost_equal(np_arr, matlab_arr):
-    """
-    Helper function to compare a numpy array to a matlab array, to
-    6 decimals of precision.
-    """
-    # first convert the numpy array to a matlab array
-    np_as_matlab = np_to_matlab(np_arr)
-    # if the numpy array is a vector,
-    # conversion to matlab will automatically make it a row vector.
-    # so if matlab output shape is a column vector,
-    # we want to transpose np_arr to make the shapes match
-    if len(np_arr.shape) == 1 and matlab_arr.size[1] == 1:
-        # if so, transpose the numpy array before comparing
-        np_as_matlab.reshape(np_as_matlab.size[1], np_as_matlab.size[0])
-    
-    # now compare the two
-    np.testing.assert_array_almost_equal(
-        np_as_matlab,
-        matlab_arr
-    )
+    def test_jackknife(self):
+        for audio_input in np.random.random(size=(10, c.N_MICS, c.N)):
+            # naive jackknife procedure:
+            # iteratively remove each microphone from the audio input
+            # and mic position arrays, then run r_est_naive
+            naive_r_estimates = []
+            naive_rsrp_grids = []
 
-def assert_np_matlab_bulk(list_np, list_matlab):
-    """
-    Helper function to compare multiple np and matlab arrays at once.
+            transposed_positions = c.MIC_POSITIONS.T
+            for i in range(c.N_MICS):
+                # remove mic i from audio and mic position arrays
+                v_omitted = np.delete(audio_input, i, axis=0)
+                mic_pos_omitted = np.delete(transposed_positions, i, axis=0)
+                # calculate estimates
+                r_est, rsrp_grid = r_est_naive(
+                    v_omitted, c.SAMPLE_RATE, c.f_lo, c.f_hi, c.AIR_TEMP,
+                    c.X_DIM, c.Y_DIM, c.GRID_RESOLUTION, mic_pos_omitted
+                )
+                naive_r_estimates.append(r_est)
+                naive_rsrp_grids.append(rsrp_grid)
+            
+            naive_avg_est = np.mean(naive_r_estimates, axis=0)
 
-    Specifically, compare each item list_np[i] with list_matlab[i] using
-    the function assert_np_matlab_almost_equal().
-    
-    Arguments:
-        - list_np: list-like of numpy arrays
-        - list_matlab: list-like of matlab arrays
-    """
-    for np_arr, matlab_arr in zip(list_np, list_matlab):
-        assert_np_matlab_almost_equal(np_arr, matlab_arr)
+            # faster version
+            faster_avg_est, faster_r_ests, faster_rsrp_grids = r_est_jackknife(
+                audio_input,
+                c.SAMPLE_RATE,
+                c.f_lo,
+                c.f_hi,
+                c.AIR_TEMP,
+                c.X_DIM,
+                c.Y_DIM,
+                c.GRID_RESOLUTION,
+                transposed_positions
+            )
+
+            np.testing.assert_array_almost_equal(naive_avg_est, faster_avg_est)
+
+            for naive_est, faster_est in zip(naive_r_estimates, faster_r_ests):
+                np.testing.assert_array_almost_equal(naive_est, faster_est)
+
+            for naive_grid, faster_grid in zip(naive_rsrp_grids, faster_rsrp_grids):
+                np.testing.assert_array_almost_equal(naive_grid, faster_grid)
+
 
 class CompareWithMatlab(unittest.TestCase):
     """Compare the outputs of the python and matlab MUSE functions."""
@@ -298,3 +303,34 @@ class CompareWithMatlab(unittest.TestCase):
                 nargout=9
             )
             assert_np_matlab_bulk(py_result_tuple, m_result_tuple)
+    
+    def test_r_est_naive(self):
+        """Make sure that the nice r_est_naive wrapper function is correct."""
+        # note that we reverse n_mic and n_samples to match wrapper fn
+        for audio_input in np.random.random(size=(10, c.N_MICS, c.N)):
+            py_r_est, py_rsrp_grid = r_est_naive(
+                audio_input,
+                c.SAMPLE_RATE,
+                c.f_lo,
+                c.f_hi,
+                c.AIR_TEMP,
+                c.X_DIM,
+                c.Y_DIM,
+                c.GRID_RESOLUTION,
+                c.MIC_POSITIONS.T  # transpose to make shape (n_mics, 3)
+            )
+            m_r_est, _, m_rsrp_grid, _, _, _, _, _, _ = self.eng.r_est_from_clip_simplified(
+                np_to_matlab(audio_input.T), # transpose to match (n_samples, n_mics)
+                float(c.SAMPLE_RATE),
+                float(c.f_lo),
+                float(c.f_hi),
+                float(c.AIR_TEMP),
+                np_to_matlab(c.x_grid),
+                np_to_matlab(c.y_grid),
+                0, # in_cage, unused argument
+                np_to_matlab(c.MIC_POSITIONS),
+                0, # verbosity
+                nargout=9
+            )
+            assert_np_matlab_bulk((py_r_est, py_rsrp_grid), (m_r_est, m_rsrp_grid))
+
