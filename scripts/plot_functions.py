@@ -62,11 +62,11 @@ def plot_room(room, axes_offset,
     fig, ax = room.plot(plot_directivity=False, mic_marker_size=50)
     ax.set_xlim([-axes_offset, x_dim+axes_offset])
     ax.set_ylim([-axes_offset, y_dim+axes_offset])
-    ax.set_zlim([-axes_offset, z_dim+axes_offset]);
+    ax.set_zlim([-axes_offset, z_dim+axes_offset])
 
     ax.set_xlabel('Width (m)', labelpad=10)
     ax.set_ylabel('Length (m)', labelpad=10)
-    ax.set_zlabel('Height (m)', labelpad=10);
+    ax.set_zlabel('Height (m)', labelpad=10)
     
     if arrows:
         # Add the direction of the microphones

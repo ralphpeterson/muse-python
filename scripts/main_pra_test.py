@@ -9,13 +9,20 @@ Material reference:
     https://pyroomacoustics.readthedocs.io/en/pypi-release/pyroomacoustics.materials.database.html
 
 """
+# %%
+%reload_ext autoreload
+%autoreload 2
 
+# %% Import packages
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.io import wavfile
 import seaborn as sns
 from scipy.spatial import distance
+import os
+print('Current directory:', os.getcwd())
 
+# %% Custom functions
 from muse import util as muse
 from scripts import plot_functions as pf
 from scripts import functions as fun
@@ -24,8 +31,6 @@ from scripts import mic_arrays as ma
 # %matplotlib qt        # interactive widow
 # %matplotlib inline    # html
 
-import os
-print('Current directory:', os.getcwd())
 # %% Setup the conditions and Generate a Room
 sr = 125000 #audio sampling rate
 
@@ -42,12 +47,17 @@ materials = [ceiling, floor, east, west, north, south]
 
 # microphone positions to place in top corners, otherwise, put in x,y,z coords 
 offset = .1 # in meters
+n_mic = 8
+# mic_orient = 'center' # 'center', 'down', or 'h_out'
+
 # mic_pos = mic_edges4(x_dim, y_dim, z_dim, offset, 'center')
 # mic_pos = mic_corners4(x_dim, y_dim, z_dim, offset)
 # mic_pos = mic_edges8(x_dim, y_dim, z_dim, offset)
-mic_pos = ma.mic_edge_corner(x_dim, y_dim, z_dim, offset)
-# mic_pos = ma.mic_array(8, x_dim/2,y_dim/2, zc=0.1, r=0.5) #radius in m
-n_mic = mic_pos.shape[1]
+# mic_pos = ma.mic_edge_corner(n_mic, x_dim, y_dim, offset*2, offset)
+
+mic_pos_a = ma.mic_edge_corner(n_mic, x_dim, y_dim, offset*2, offset)
+mic_pos_b = ma.mic_circular_array(n_mic, x_dim/2,y_dim/2, zc=0.1, r=0.1) #radius in m
+mic_pos = np.concatenate((mic_pos_a, mic_pos_b),axis=1)
 
 # load the stimulus to play in the room
 stim_dir = '../muse-python/stimuli/tones/sine_2khz.wav'
@@ -55,19 +65,29 @@ stim_name = stim_dir.split('/')[-1]
 sr_stimulus, stimulus = wavfile.read(os.path.abspath(stim_dir))
 
 #position of a speaker in the room (in m)
-x_pos, y_pos = x_dim/2, y_dim/2 # center of the room
+x_pos, y_pos = x_dim-offset, y_dim-offset # center of the room
 z_pos = 0.01
 
 #%% Generate a room
 room = fun.generate_room(x_dim, y_dim, z_dim, materials)
+axes_offset = 0.5
 
 # visualize the room
-axes_offset = 0.5
 # pf.plot_room(room, axes_offset, x_dim, y_dim, z_dim)
 
 # Add mics in the room & get the direction of the microphones
-mic_dir = fun.place_mics(room, mic_pos) # mics pointing to the room center
-# mic_dir = fun.orient_mic(room, mic_pos)
+# if mic_orient=='center':
+#     mic_dir = fun.place_mics_center(room, mic_pos) # mics pointing to the room center
+# elif mic_orient =='h_out':
+#     mic_dir = fun.place_mics_h_out(room, mic_pos)
+# elif mic_orient == 'down':
+#     mic_dir = fun.place_mics_down(room, mic_pos)
+
+# mic_dira = fun.place_mics_center(room, mic_pos_a)
+# mic_dirb = fun.place_mics_h_out(room, mic_pos_b)
+dir_idx = np.concatenate((np.ones(n_mic), np.ones(n_mic)*2))
+mic_dir = fun.place_mics(room, mic_pos, dir_idx)
+
 # pf.plot_room(room, axes_offset, x_dim, y_dim, z_dim)
 
 # Add a speaker
@@ -103,7 +123,6 @@ pf.plot_mic_audio(room, stimulus, n_mic, sr, stim_name)
 audio,fs,f_lo,f_hi,temp,x_grid,y_grid,in_cage,R = fun.set_MUSE_params(room, x_dim, y_dim, mic_pos, sr, 0.0025)
 
 # %% Run MUSE
-print('Running MUSE')
 r_est, _, rsrp_grid, _, _, _, _, _, _ \
 = muse.r_est_from_clip_simplified(audio,
     fs,
@@ -115,6 +134,7 @@ r_est, _, rsrp_grid, _, _, _, _, _, _ \
     in_cage,
     R,  # Expected to have shape (3, n_mics)
     1)
+print('done MUSE')
 
 # Plot the RSRP grid 
 fig, ax = plt.subplots(1,1,figsize=(7,7))
@@ -127,13 +147,14 @@ ax.set_aspect('equal', 'box')
 plt.tight_layout()
 
 # %% Run jackknife
-from scripts_ay import jackknife as jk
+from scripts import jackknife as jk
 
-r_mean, r_std = jk.jackknife(mic_pos,speaker_pos,
-              stimulus,sr_stimulus, sr,
-              x_dim, y_dim, z_dim, materials)
+r_mean, r_std = jk.jackknife(mic_pos,dir_idx, 
+                             speaker_pos,
+                             stimulus,sr_stimulus, sr,
+                             x_dim, y_dim, z_dim, materials)
 
-
+print('jackknife done')
 # %% Plot the source and the estimated location
 axes_offset = 0.5
 
@@ -145,6 +166,7 @@ fig, ax = room.plot(plot_directivity=False, mic_marker_size=50,img_order=-1)
 
 ax.plot3D(x_pos, y_pos, z_pos, marker='o', color='k', markersize=5)
 ax.plot3D(r_est[0], r_est[1], 0, marker='o', color='r', markersize=5)
+ax.plot3D(r_mean[0], r_mean[1], 0, marker='x', color='b', markersize=5)
 
 ax.set_xlim([-axes_offset, x_dim+axes_offset])
 ax.set_ylim([-axes_offset, y_dim+axes_offset])
@@ -154,9 +176,35 @@ ax.set_xlabel('Width (m)', labelpad=10)
 ax.set_ylabel('Length (m)', labelpad=10)
 ax.set_zlabel('Height (m)', labelpad=10);
 
-print('MUSE error:', np.around(distance.euclidean(r_est, speaker_pos[:2])*1e2, decimals=3), 'cm')
+print('MUSE error (snippets):', 
+      np.around(distance.euclidean(r_est, speaker_pos[:2])*1e2, 
+                decimals=3), 'cm')
+print('MUSE error (jackknife):', 
+      np.around(distance.euclidean(r_mean, speaker_pos[:2])*1e2, 
+                decimals=3), 'cm')
 
+# %% Snippets heatmap
+from scripts import heatmap as hm
+n = 20 # number of points in the room (xy plane)
+xy_err = hm.heat_map(x_dim, y_dim, z_dim, n, 
+                  z_pos, materials, mic_pos, 
+                  sr, stimulus, sr_stimulus,
+                  dir_idx)
+print('heatmap snippets done')
+# %% Plot heatmap
+xs, ys = np.linspace(0,x_dim, n), np.linspace(0,y_dim, n)
+hm.plot_heatmap(xs, ys, xy_err, x_dim, y_dim, mic_pos, mic_dir)
+hm.plot_heatmap_histogram(xy_err)
+ 
+# %% Jackknife heatmap (time consuming)
+n_grid = 5
+xy_err_jk = hm.heat_map(x_dim, y_dim, z_dim, n_grid, 
+                  z_pos, materials, mic_pos, 
+                  sr, stimulus, sr_stimulus,
+                  mic_orient, mode='jk')
+# %% Plot heatmap
+xs, ys = np.linspace(0,x_dim, n_grid), np.linspace(0,y_dim, n_grid)
+hm.plot_heatmap(xs, ys, xy_err_jk, x_dim, y_dim, mic_pos, mic_dir)
+hm.plot_heatmap_histogram(xy_err_jk)
 
-
-
-
+# %%
