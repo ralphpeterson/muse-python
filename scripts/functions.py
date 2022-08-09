@@ -33,11 +33,16 @@ def generate_room(x_dim, y_dim, z_dim, wall_materials, sampling_rate=125000):
     ) 
     return shoebox_object
 
-def place_mics(shoebox, mic_pos:np.ndarray, dir_idx:np.ndarray):
+def place_mics(shoebox, mic_pos:np.ndarray, dir_idx:np.ndarray, length:float=0.5):
     '''
         shoebox: room (pyroomacoustics)
         mic_pos: np.ndarray of microphone positions (float) - (3, n_mic)
         dir_idx: int np.ndarray of microphone direction indices for the corresponding mics
+                 indices:
+                    1 - orient the mic to the center of the room
+                    2 - orient the mic horizontally outfward from the center of the room
+                    3 - orient the mic vertically downward
+                    4 - orient the mic horizontally inward (towards the center)
     '''
     # Assuming mic_pos has shape (3, n_mics), which, while strange, is what MUSE expects
     # I think this is just a side-effect of MATLAB matrix convention
@@ -49,7 +54,7 @@ def place_mics(shoebox, mic_pos:np.ndarray, dir_idx:np.ndarray):
     
     # Compute directivity of microphones
     room_center = np.array(shoebox_dims) / 2
-    room_center[2] = 0          # set the z-center to be zero
+    room_center[2] = 0    # set the z-center to be zero
     
     mic_directions = np.zeros(mic_loc.shape)
     for i, dir_id in enumerate(dir_idx):
@@ -61,11 +66,15 @@ def place_mics(shoebox, mic_pos:np.ndarray, dir_idx:np.ndarray):
             mic_directions[i,2] = 0
             mic_directions[i] /= -1*np.sqrt((mic_directions[i]**2).sum(axis=0, keepdims=True))
         elif dir_id ==3: # vertically down
-            mic_directions[i] = - mic_loc
+            mic_directions[i] = - mic_loc[i]
             mic_directions[i,0:2] = 0
             mic_directions[i] /= 1*np.sqrt((mic_directions[i]**2).sum(axis=0, keepdims=True))
+        elif dir_id ==4: # horizontally inward
+            mic_directions[i,2] = 0
+            mic_directions[i] /= np.sqrt((mic_directions[i]**2).sum(axis=0, keepdims=True))
         else:
-            raise ValueError('Invalid direction index (must be 1, 2, or 3).')
+            raise ValueError('Invalid direction index (must be 1, 2, 3, or 4).')
+        mic_directions *= length
 
     # Convert the direction vectors into polar coordinates for the directivities used by PRA
     directivities = []
@@ -96,145 +105,8 @@ def place_mics(shoebox, mic_pos:np.ndarray, dir_idx:np.ndarray):
         mic_dir[i] = np.array([xd,yd,zd])
 
     # Transpose mic_loc back to (3, n_mics)
-    shoebox.add_microphone_array(mic_array=mic_loc.T, directivity=directivities)
-    
-    return mic_dir
-
-
-# def place_mics_down(shoebox, mic_pos):
-#     ''' 
-#     Orient the microphones vertically downward
-#     '''
-#     mic_pos = mic_pos.T  # (3, n_mics) -> (n_mics, 3)
-#     shoebox_dims = shoebox.shoebox_dim
-#     if any([coord >= box_size for coord, box_size in zip(mic_pos.max(axis=0), shoebox_dims)]) \
-#         or any([coord <= 0 for coord in mic_pos.min(axis=0)]):
-#         raise ValueError("The microphones must be within the box. They cannot be located along an egde or face.")
-    
-#     room_center = np.array(shoebox_dims) / 2
-#     room_center[2] = 0
-    
-#     # List of vectors pointing each mic downward
-#     mic_directions = - mic_pos
-#     mic_directions[:,0:2] = 0 # set the horizontal component to be zero.
-#     mic_directions /= 1*np.sqrt((mic_directions**2).sum(axis=1, keepdims=True))
-
-#     directivities = []
-#     mic_dir = np.zeros(mic_directions.shape)
-#     for i,direction in enumerate(mic_directions):
-#         theta = np.arctan2(direction[1], direction[0])
-#         xy_vec_size = np.sqrt((direction[:2] ** 2).sum())
-#         phi = np.pi/2 - np.arctan(direction[2] / xy_vec_size)
-#         pra_direction = DirectionVector(
-#             azimuth=theta,
-#             colatitude=phi,
-#             degrees=False
-#         )
-#         directivities.append(CardioidFamily(
-#             orientation=pra_direction,
-#             pattern_enum=DirectivityPattern.HYPERCARDIOID
-#         ))
-        
-#         xd,yd,zd = np.sin(phi)*np.cos(theta),np.sin(phi)*np.sin(theta),np.cos(phi)
-#         mic_dir[i] = np.array([xd,yd,zd])
-
-#     # Transpose mic_pos back to (3, n_mics)
-#     shoebox.add_microphone_array(mic_array=mic_pos.T, directivity=directivities)
-#     return mic_dir
-
-# def place_mics_h_out(shoebox, mic_pos):
-#     ''' 
-#     Orient the microphones horizontally outward
-#     '''
-#     mic_pos = mic_pos.T  # (3, n_mics) -> (n_mics, 3)
-#     shoebox_dims = shoebox.shoebox_dim
-#     if any([coord >= box_size for coord, box_size in zip(mic_pos.max(axis=0), shoebox_dims)]) \
-#         or any([coord <= 0 for coord in mic_pos.min(axis=0)]):
-#         raise ValueError("The microphones must be within the box. They cannot be located along an egde or face.")
-    
-#     room_center = np.array(shoebox_dims) / 2
-#     room_center[2] = 0
-    
-#     # List of vectors pointing from each mic to or away from the room_center
-#     mic_directions = room_center[np.newaxis, ...] - mic_pos
-#     mic_directions[:,2] = 0 # horizontal
-#     mic_directions /= -1*np.sqrt((mic_directions**2).sum(axis=1, keepdims=True))
-
-#     directivities = []
-#     mic_dir = np.zeros(mic_directions.shape)
-#     for i,direction in enumerate(mic_directions):
-#         theta = np.arctan2(direction[1], direction[0])
-#         xy_vec_size = np.sqrt((direction[:2] ** 2).sum())
-#         phi = np.pi/2 - np.arctan(direction[2] / xy_vec_size)
-#         pra_direction = DirectionVector(
-#             azimuth=theta,
-#             colatitude=phi,
-#             degrees=False
-#         )
-#         directivities.append(CardioidFamily(
-#             orientation=pra_direction,
-#             pattern_enum=DirectivityPattern.HYPERCARDIOID
-#         ))
-        
-#         xd,yd,zd = np.sin(phi)*np.cos(theta),np.sin(phi)*np.sin(theta),np.cos(phi)
-#         mic_dir[i] = np.array([xd,yd,zd])
-
-#     # Transpose mic_pos back to (3, n_mics)
-#     shoebox.add_microphone_array(mic_array=mic_pos.T, directivity=directivities)
-#     return mic_dir
-
-# def place_mics_center(shoebox, mic_pos:float):
-#     # Assuming mic_pos has shape (3, n_mics), which, while strange, is what MUSE expects
-#     # I think this is just a side-effect of MATLAB matrix convention
-#     mic_pos = mic_pos.T  # (3, n_mics) -> (n_mics, 3)
-#     shoebox_dims = shoebox.shoebox_dim
-#     if any([coord >= box_size for coord, box_size in zip(mic_pos.max(axis=0), shoebox_dims)]) \
-#         or any([coord <= 0 for coord in mic_pos.min(axis=0)]):
-#         raise ValueError("The microphones must be within the box. They cannot be located along an egde or face.")
-    
-#     # Compute directivity of microphones
-#     # Assumes the microphones are all pointed toward the center of the room's floor
-#     # Can be simplified by just pointing them downward
-#     room_center = np.array(shoebox_dims) / 2
-#     room_center[2] = 0          # set the z-center to be zero
-    
-#     # List of vectors pointing from each mic to or away from the room_center
-#     mic_directions = room_center[np.newaxis, ...] - mic_pos
-#     # Normalize the vectors
-#     mic_directions /= np.sqrt((mic_directions**2).sum(axis=1, keepdims=True))
-
-#     # Convert the direction vectors into polar coordinates for the directivities used by PRA
-#     directivities = []
-#     mic_dir = np.zeros(mic_directions.shape)
-#     for i,direction in enumerate(mic_directions):
-#         # Angle within the x-y plane. 0 radians is toward the positive x direction
-#         # In spherical coordinates, this is \theta
-#         theta = np.arctan2(direction[1], direction[0])
-#         # Same thing here, but between the z axis and the x-y plane
-#         xy_vec_size = np.sqrt((direction[:2] ** 2).sum())
-#         # Using arctan instead of arctan2 because I need the result to be within Q1 and Q4
-#         # This would be called \phi in spherical coordinates
-#         phi = np.pi/2 - np.arctan(direction[2] / xy_vec_size)
-#         pra_direction = DirectionVector(
-#             azimuth=theta,
-#             colatitude=phi,
-#             degrees=False
-#         )
-#         # For visualizations, see https://en.wikipedia.org/wiki/Microphone#Polar_patterns
-#         # For supported options, see https://pyroomacoustics.readthedocs.io/en/pypi-release/pyroomacoustics.directivities.html?highlight=DirectivityPattern#pyroomacoustics.directivities.DirectivityPattern
-#         directivities.append(CardioidFamily(
-#             orientation=pra_direction,
-#             pattern_enum=DirectivityPattern.HYPERCARDIOID
-#         ))
-#         xd = np.sin(phi)*np.cos(theta)
-#         yd = np.sin(phi)*np.sin(theta)
-#         zd = np.cos(phi)
-#         mic_dir[i] = np.array([xd,yd,zd])
-
-#     # Transpose mic_pos back to (3, n_mics)
-#     shoebox.add_microphone_array(mic_array=mic_pos.T, directivity=directivities)
-    
-#     return mic_dir
+    # shoebox.add_microphone_array(mic_array=mic_loc.T, directivity=directivities)
+    return shoebox, mic_dir*length, directivities
 
 def add_source(speaker_pos, stimulus, sr_stimulus, room):
     if not isinstance(speaker_pos, list):
@@ -242,8 +114,9 @@ def add_source(speaker_pos, stimulus, sr_stimulus, room):
     
     if room.fs != sr_stimulus:
         print('resampling audio')
-        stimulus_resampled = librosa.resample(stimulus.astype('float'), orig_sr=sr_stimulus, 
-                                                                      target_sr=room.fs)
+        stimulus_resampled = librosa.resample(stimulus.astype('float'), 
+                                              orig_sr=sr_stimulus,
+                                              target_sr=room.fs)
         room.add_source(speaker_pos, signal=stimulus_resampled, delay=0)
         return room.fs, stimulus_resampled
         
@@ -263,7 +136,6 @@ def set_MUSE_params(room, x_dim, y_dim, mic_pos, sr, res=0.0025):
     f_lo = 0
     f_hi = 62500
     fs = sr #audio sampling rate
-    # dt = 1 / fs #time step
     temp = 20 #temperature oF environment (C)
     N, n_mics = audio.shape #num mics
     
@@ -272,7 +144,7 @@ def set_MUSE_params(room, x_dim, y_dim, mic_pos, sr, res=0.0025):
 
 if __name__ == "__main__":
 
-    print('hello')
+    print('')
 
 
 
